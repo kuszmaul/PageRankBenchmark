@@ -1,6 +1,6 @@
 
 %SCALE = [10:22];                                 % Scale of problem.
-SCALE = [9:13];                                 % Scale of problem.
+SCALE = [5:6];                                 % Scale of problem.
 EdgesPerVertex = 16;                             % Average degree of each vertex (power of 2).
 Nfile = 4;                                       % Number of files to use (any power of 2).
 Niter = 20;                                      % Number of PageRank iterations.
@@ -18,6 +18,9 @@ end
 Krate = bsxfun(@rdivide,M,Ktime);
 Krate(4,:) = Niter .* Krate(4,:);
 
-figure;
-loglog(M,Krate);  xlabel('number of edges');  ylabel('edges/second');
-legend('K0 Generate','K1 Sort','K2 Filter','K3 PageRank','Location','NorthEastOutside');
+% figure;
+% loglog(M,Krate);  xlabel('number of edges');  ylabel('edges/second');
+% legend('K0 Generate','K1 Sort','K2 Filter','K3 PageRank','Location','NorthEastOutside');
+
+dlmwrite('octave.data', rot90(vertcat(SCALE,Krate)))
+        
