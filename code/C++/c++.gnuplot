@@ -11,7 +11,7 @@
 #    	faq, bugs, etc:   type "help FAQ"
 #    	immediate help:   type "help"  (plot window: hit 'h')
 # set terminal pdfcairo  transparent enhanced fontscale 0.5 size 5.00in, 3.00in 
-# set output 'pagerank.pdf'
+# set output 'c++.pdf'
 unset clip points
 set clip one
 unset clip two
@@ -169,6 +169,6 @@ GNUTERM = "qt"
 ARGC = 0
 ARG0 = ""
 x = 0.0
-## Last datafile plotted: "pagerank.data"
-plot "pagerank.data" using 2:3 with lines title "k0",  "pagerank.data" using 2:4 with lines  title "k1",  "pagerank.data" using 2:5 with lines  title "k2",  "pagerank.data" using 2:6 with lines  title "k3"
+## Last datafile plotted: "c++.data"
+plot "c++.data" using 2:3 with lines title "k0",  "c++.data" using 2:4 with lines  title "k1",  "c++.data" using 2:5 with lines  title "k2",  "c++.data" using 2:6 with lines  title "k3"
 #    EOF

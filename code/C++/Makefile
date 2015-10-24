@@ -11,3 +11,8 @@ pagerankpipeline.o: pagerankpipeline.cc | krongraph500.hh fasttime.h pagerankpip
 
 clean:
 	rm -rf runpagerankpipeline *.o
+
+c++.data: runpagerankpipeline
+	./runpagerankpipeline
+c++.pdf: c++.data c++.gnuplot
+	gnuplot -e "set terminal pdfcairo; set output '$@'" c++.gnuplot
