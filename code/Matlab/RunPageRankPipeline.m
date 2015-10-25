@@ -1,5 +1,5 @@
 
-SCALE = [10:22];                                 % Scale of problem.
+SCALE = [10:11];                                 % Scale of problem.
 %SCALE = [5:6];                                 % Scale of problem.
 EdgesPerVertex = 16;                             % Average degree of each vertex (power of 2).
 Nfile = 4;                                       % Number of files to use (any power of 2).
@@ -22,7 +22,7 @@ Krate(4,:) = Niter .* Krate(4,:);
 % loglog(M,Krate);  xlabel('number of edges');  ylabel('edges/second');
 % legend('K0 Generate','K1 Sort','K2 Filter','K3 PageRank','Location','NorthEastOutside');
 
-dlmwrite('octave.data', rot90(vertcat(SCALE,Krate)))
+dlmwrite('octave.data', rot90(vertcat(SCALE,Krate)), 'delimiter', '\t');
        
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
