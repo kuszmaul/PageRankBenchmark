@@ -5,7 +5,7 @@ import numpy as np
 if PLOT:
     import matplotlib.pyplot as plt
 
-SCALE=range(9,16)
+SCALE=range(10,22)
 EdgesPerVertex=16
 Nfile=4
 Niter=20
