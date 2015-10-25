@@ -1,1 +1,11 @@
 autom4te.cache
+Makefile
+config.h
+config.log
+config.status
+*.a
+*.fmlfg
+*.cmflg
+*.sprng
+stamp-h1
+.deps
