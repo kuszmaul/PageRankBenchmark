@@ -16,5 +16,5 @@ clean:
 
 c++.data: runpagerankpipeline
 	./runpagerankpipeline
-c++.pdf: c++.data c++.gnuplot
-	gnuplot -e "set terminal pdfcairo; set output '$@'" c++.gnuplot
+%.pdf: %.gnuplot %.data 
+	gnuplot -e "set terminal pdfcairo; set output '$@'" $<

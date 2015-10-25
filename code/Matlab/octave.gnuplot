@@ -11,7 +11,7 @@
 #    	faq, bugs, etc:   type "help FAQ"
 #    	immediate help:   type "help"  (plot window: hit 'h')
 # set terminal pdfcairo  transparent enhanced fontscale 0.5 size 5.00in, 3.00in 
-# set output 'c++.pdf'
+# set output 'octave.pdf'
 unset clip points
 set clip one
 unset clip two
@@ -112,7 +112,7 @@ unset paxis 4 tics
 unset paxis 5 tics
 unset paxis 6 tics
 unset paxis 7 tics
-set title "C++ pagerank performance" 
+set title "Octave pagerank performance" 
 set title  font "" norotate
 set timestamp bottom 
 set timestamp "" 
@@ -131,7 +131,7 @@ set ylabel "edges/s"
 set ylabel  font "" textcolor lt -1 rotate by -270
 set y2label "" 
 set y2label  font "" textcolor lt -1 rotate by -270
-set yrange [ 10000 : * ] noreverse nowriteback
+set yrange [ * : * ] noreverse nowriteback
 set y2range [ * : * ] noreverse nowriteback
 set zlabel "" 
 set zlabel  font "" textcolor lt -1 norotate
@@ -168,6 +168,6 @@ GNUTERM = "qt"
 ARGC = 0
 ARG0 = ""
 x = 0.0
-## Last datafile plotted: "c++.data"
-plot "c++.data" using 1:6 with lines  title "k3", "c++.data" using 1:5 with lines  title "k2", "c++.data" using 1:4 with lines  title "k1" , "c++.data" using 1:3 with lines title "k0"
+## Last datafile plotted: "octave.data"
+plot "octave.data" using 1:5 with lines title "K3", "octave.data" using 1:4 with lines title "K2", "octave.data" using 1:3 with lines title "K1", "octave.data" using 1:2 with lines title "K0"
 #    EOF
