@@ -1,8 +1,11 @@
+PLOT=0
 from PageRankPipeline import *
 import numpy as np
-import matplotlib.pyplot as plt
 
-SCALE=range(9,14)
+if PLOT:
+    import matplotlib.pyplot as plt
+
+SCALE=range(9,16)
 EdgesPerVertex=16
 Nfile=4
 Niter=20
@@ -23,19 +26,29 @@ Ratemat4 = RateMatrix[:,3]*Niter
 RateMatrix[:,3] = Ratemat4
 
 print RateMatrix
-fig=plt.figure()
-ax=fig.add_subplot(1,1,1)
 
-line0, = ax.plot(M, RateMatrix[:,0], '--', linewidth=2)
-line1, = ax.plot(M, RateMatrix[:,1], '--', linewidth=2)
-line2, = ax.plot(M, RateMatrix[:,2], '--', linewidth=2)
-line3, = ax.plot(M, RateMatrix[:,3], '--', linewidth=2)
+if PLOT:
+    fig=plt.figure()
+    ax=fig.add_subplot(1,1,1)
 
-plt.legend(['K0 rate', 'K1 rate', 'K2 rate', 'K3 rate'])
-plt.xlabel('Number of Edges')
-plt.ylabel('edges/second')
+    line0, = ax.plot(M, RateMatrix[:,0], '--', linewidth=2)
+    line1, = ax.plot(M, RateMatrix[:,1], '--', linewidth=2)
+    line2, = ax.plot(M, RateMatrix[:,2], '--', linewidth=2)
+    line3, = ax.plot(M, RateMatrix[:,3], '--', linewidth=2)
 
-ax.set_xscale('log')
-ax.set_yscale('log')
+    plt.legend(['K0 rate', 'K1 rate', 'K2 rate', 'K3 rate'])
+    plt.xlabel('Number of Edges')
+    plt.ylabel('edges/second')
 
-plt.show()
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    plt.savefig('python_pgresults.pdf')
+    #plt.show()
+
+'''%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PageRank Pipeline Benchmark
+% Developer: Dr. Vijay Gadepally (vijayg@mit.edu)
+% MIT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% (c) <2015> Vijay Gadepally
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'''
