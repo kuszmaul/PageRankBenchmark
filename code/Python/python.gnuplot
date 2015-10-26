@@ -169,5 +169,5 @@ ARGC = 0
 ARG0 = ""
 x = 0.0
 ## Last datafile plotted: "python.data"
-plot "python.data" using 1:($5/2) with lines title "K3", "python.data" using 1:4 with lines title "K2", "python.data" using 1:3 with lines title "K1", "python.data" using 1:2 with lines title "K0"
+plot "python.data" using 1:5 with lines title "K3", "python.data" using 1:4 with lines title "K2", "python.data" using 1:3 with lines title "K1", "python.data" using 1:2 with lines title "K0"
 #    EOF
