@@ -4,13 +4,15 @@
 
 #include "pagerankpipeline.hh"
 
+#include <unistd.h>
+
 #include <cassert>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <ctime>
 #include <limits>
-
 
 static const int min_scale_default = 10;
 static const int max_scale_default = 22;
@@ -47,7 +49,21 @@ int main(int argc, char *argv[] __attribute__((unused))) {
     printf("Too many arguments\n");
     usage();
   }
-  data_file = fopen("c++.data", "w");
+  data_file = fopen("c++.data", "a");
+  assert(data_file);
+  
+  {
+    char hostname[100];
+    gethostname(hostname, sizeof(hostname)-1);
+    hostname[sizeof(hostname)-1] = 0;
+    const time_t now = time(NULL);
+    struct tm *gmnow = gmtime(&now);
+    char timestring[100];
+    strftime(timestring, sizeof(timestring)-1, "%F %T", gmnow);
+    timestring[sizeof(timestring)-1] = 0;
+    fprintf(data_file, "# C++ run on %s by %s@%s\n", timestring, getlogin(), hostname);
+    fprintf(data_file, "# scale k0-edges-per-sec k1-edges-per-sec k2-edges-per-sec k3-edges-per-sec\n");
+  }
   const int edges_per_vertex = 16;
   const int nfile = 1;
   for (int scale = min_scale; scale <= max_scale; scale++) {

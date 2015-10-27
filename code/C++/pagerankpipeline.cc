@@ -340,6 +340,7 @@ void kernel3(const int SCALE, const int edges_per_vertex, const csr_matrix<T> &M
          2e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
   if (data_file) {
     fprintf(data_file, " %g\n", (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
+    fflush(data_file);
   }
 }
 
