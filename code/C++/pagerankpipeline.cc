@@ -118,7 +118,7 @@ void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
          bytes_written,
          1e-6 * bytes_written / (end-start));
   if (data_file) {
-    fprintf(data_file, "%d %ld %g", SCALE, (1ul<<SCALE)*edges_per_vertex, ((1ul<<SCALE)*edges_per_vertex*n_files) / (end-start));
+    fprintf(data_file, "%d\t%ld\t%g", SCALE, (1ul<<SCALE)*edges_per_vertex, ((1ul<<SCALE)*edges_per_vertex*n_files) / (end-start));
   }
 }
 
@@ -136,7 +136,7 @@ void kernel1(const int SCALE, const int edges_per_vertex, const int n_files) {
          end-start,
          1e-6 * edges.size() / (end-start));
   if (data_file) {
-    fprintf(data_file, " %g", edges.size() / (end-start));
+    fprintf(data_file, "\t%g", edges.size() / (end-start));
   }
 }
 
@@ -270,7 +270,7 @@ void kernel2(const int SCALE, const int edges_per_vertex, const int n_files, csr
          end-start,
          1e-6 * edges.size() / (end-start));
   if (data_file) {
-    fprintf(data_file, " %g", edges.size() / (end-start));
+    fprintf(data_file, "\t%g", edges.size() / (end-start));
   }
 }
 
@@ -339,7 +339,7 @@ void kernel3(const int SCALE, const int edges_per_vertex, const csr_matrix<T> &M
          1e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start),
          2e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
   if (data_file) {
-    fprintf(data_file, " %g\n", (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
+    fprintf(data_file, "\t%g\n", (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
     fflush(data_file);
   }
 }
