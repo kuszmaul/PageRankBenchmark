@@ -25,7 +25,7 @@ RateMatrix=ElementMatrix/TimeArray
 Ratemat4 = RateMatrix[:,3]*Niter
 RateMatrix[:,3] = Ratemat4
 
-f=open('python.out','w')
+f=open('python.data','w')
 strtowrite="SCALE \t K0-edges-per-s \t K1-edges-per-s \t K2-edges-per-s \t K3-edges-per-s\n"
 f.write(strtowrite)
 
