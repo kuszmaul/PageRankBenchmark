@@ -14,6 +14,11 @@
 
 #include <sys/stat.h>
 
+#ifdef USE_OMP
+#include <parallel/algorithm>
+#endif
+
+
 FILE *data_file = NULL; // set to non-null to produce a data file suitable for gnuplot.
 
 
@@ -47,13 +52,17 @@ void read_files(int kernel, int SCALE, int edges_per_vertex, int n_files,
                 std::vector<std::tuple<T, T>> *edges) {
   const uint64_t M_per_file = (1ul<<SCALE) * edges_per_vertex;
   const uint64_t M = M_per_file * n_files;
-  edges->reserve(M);
+  edges->resize(M);
+#ifdef USE_OMP
+    #pragma omp parallel for
+#endif
   for (int i = 0; i < n_files; i++) {
     FILE *f = fopen(file_named(kernel, SCALE, i).c_str(), "r");
     assert(f);
     char *line = NULL;
     size_t len = 0;
     ssize_t n_read;
+    auto write_it = edges->begin() + i*M_per_file;
     while ((n_read = getline(&line, &len, f)) != -1) {
       char *tab;
       T v1 = parse_int<T>(line, &tab);
@@ -62,8 +71,9 @@ void read_files(int kernel, int SCALE, int edges_per_vertex, int n_files,
       T v2 = parse_int<T>(tab+1, &nl);
       assert(nl[0] == '\n');
       assert(nl[1] == 0);
-      edges->push_back(std::tuple<T,T>(v1, v2));
+      *write_it++ = std::tuple<T,T>(v1, v2);
     }
+    assert(write_it == edges->begin() + (i+1)*M_per_file);
     if (line) free(line);
     fclose(f);
   }
@@ -77,6 +87,9 @@ void write_files(const int kernel, const int SCALE, const int edges_per_vertex, 
   const uint64_t M_per_file = (1ul<<SCALE) * edges_per_vertex;
   auto it = edges.begin();
   mkdir(dir_named(1, SCALE).c_str(), 0777);
+#ifdef USE_OMP
+    #pragma omp parallel for
+#endif
   for (int i = 0; i < n_files; i++) {
     std::ofstream f(file_named(kernel, SCALE, i), std::ios::out);
     for (T j = 0; j < M_per_file; j++) {
@@ -92,6 +105,9 @@ template <class T>
 void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
   fasttime_t start = gettime();
   mkdir("data", 0777);
+#ifdef USE_OMP
+    #pragma omp parallel for
+#endif
   for (int i = 0; i < n_files; i++) {
     mkdir(dir_named(0, SCALE).c_str(), 0777);
     if (0) {
@@ -124,12 +140,22 @@ void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
 }
 
 template <class T>
+void mysort(T *vec_or_matrix) {
+#ifndef USE_OMP
+  std::sort(vec_or_matrix->begin(), vec_or_matrix->end());
+#else
+  __gnu_parallel::sort(vec_or_matrix->begin(), vec_or_matrix->end());
+#endif
+}
+
+template <class T>
 void kernel1(const int SCALE, const int edges_per_vertex, const int n_files) {
   fasttime_t start = gettime();
   // Sort the data
   std::vector<std::tuple<T, T>> edges;
   read_files<T>(0, SCALE, edges_per_vertex, n_files, &edges);
-  std::sort(edges.begin(), edges.end());
+  mysort(&edges);
+
   write_files<T>(1, SCALE, edges_per_vertex, n_files, edges);
   fasttime_t end   = gettime();
   printf("scale=%2d Edgefactor=%2d K1time: %9.3fs Medges/sec: %7.2f\n", 
@@ -172,7 +198,7 @@ csc_matrix<T> kernel2(const int SCALE, const int edges_per_vertex, const int n_f
   // Remove the supernodes and leaves.  The in-degree is the number of nonzeros in a column.
   // Get rid of the column(s) with the most entries  and the columns with exactly one entry.
   // Since we stored columns we can sort it.
-  std::sort(matrix.begin(), matrix.end());
+  mysort(&matrix);
 
   {
     std::vector<T> col_counts(N, 0);
@@ -298,6 +324,9 @@ std::vector<double> kernel3_compute(const int SCALE,
   //  the end.
   std::vector<double> r2(N, 0);
   for (int pr_count = 0; pr_count < page_rank_iteration_count; pr_count++) {
+#ifdef USE_OMP
+    #pragma omp parallel for
+#endif
     for (size_t i = 0; i < N; i++) {
       // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
       double dotsum = 0;
