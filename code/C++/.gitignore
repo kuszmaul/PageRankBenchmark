@@ -3,3 +3,4 @@
 runpagerankpipeline
 data
 testkernel3
+runpagerankpipeline_omp
