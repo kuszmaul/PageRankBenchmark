@@ -62,6 +62,9 @@ void read_files(int kernel, int SCALE, int edges_per_vertex, int n_files,
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
+#ifdef USE_CILK
+    #pragma cilk grainsize = 1
+#endif
   CILK_FOR (int i = 0; i < n_files; i++) {
     FILE *f = fopen(file_named(kernel, SCALE, i).c_str(), "r");
     assert(f);
@@ -96,6 +99,9 @@ void write_files(const int kernel, const int SCALE, const int edges_per_vertex, 
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
+#ifdef USE_CILK
+    #pragma cilk grainsize = 1
+#endif
   CILK_FOR (int i = 0; i < n_files; i++) {
     std::ofstream f(file_named(kernel, SCALE, i), std::ios::out);
     for (T j = 0; j < M_per_file; j++) {
@@ -113,6 +119,9 @@ void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
   mkdir("data", 0777);
 #ifdef USE_OMP
     #pragma omp parallel for
+#endif
+#ifdef USE_CILK
+    #pragma cilk grainsize = 1
 #endif
   CILK_FOR (int i = 0; i < n_files; i++) {
     mkdir(dir_named(0, SCALE).c_str(), 0777);
@@ -333,6 +342,9 @@ std::vector<double> kernel3_compute(const int SCALE,
   for (int pr_count = 0; pr_count < page_rank_iteration_count; pr_count++) {
 #ifdef USE_OMP
     #pragma omp parallel for
+#endif
+#ifdef USE_CILK
+    #pragma cilk grainsize = 1
 #endif
     CILK_FOR (size_t i = 0; i < N; i++) {
       // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
