@@ -14,8 +14,14 @@
 
 #include <sys/stat.h>
 
-#ifdef USE_OMP
+#if defined(USE_OMP) || defined(USE_CILK)
 #include <parallel/algorithm>
+#endif
+
+#ifdef USE_CILK
+#define CILK_FOR _Cilk_for
+#else
+#define CILK_FOR for
 #endif
 
 
@@ -56,7 +62,7 @@ void read_files(int kernel, int SCALE, int edges_per_vertex, int n_files,
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
-  for (int i = 0; i < n_files; i++) {
+  CILK_FOR (int i = 0; i < n_files; i++) {
     FILE *f = fopen(file_named(kernel, SCALE, i).c_str(), "r");
     assert(f);
     char *line = NULL;
@@ -90,7 +96,7 @@ void write_files(const int kernel, const int SCALE, const int edges_per_vertex, 
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
-  for (int i = 0; i < n_files; i++) {
+  CILK_FOR (int i = 0; i < n_files; i++) {
     std::ofstream f(file_named(kernel, SCALE, i), std::ios::out);
     for (T j = 0; j < M_per_file; j++) {
       f << std::get<0>(*it) << '\t' << std::get<1>(*it) << '\n';
@@ -108,7 +114,7 @@ void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
-  for (int i = 0; i < n_files; i++) {
+  CILK_FOR (int i = 0; i < n_files; i++) {
     mkdir(dir_named(0, SCALE).c_str(), 0777);
     if (0) {
       std::ofstream f(file_named(0, SCALE, i), std::ios::out);
@@ -141,9 +147,10 @@ void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
 
 template <class T>
 void mysort(T *vec_or_matrix) {
-#ifndef USE_OMP
+#if !(defined(USE_OMP) || defined(USE_CILK))
   std::sort(vec_or_matrix->begin(), vec_or_matrix->end());
 #else
+  // use the gnu parallel sort (in OMP) if we are using Cilk or OMP.
   __gnu_parallel::sort(vec_or_matrix->begin(), vec_or_matrix->end());
 #endif
 }
@@ -327,7 +334,7 @@ std::vector<double> kernel3_compute(const int SCALE,
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
-    for (size_t i = 0; i < N; i++) {
+    CILK_FOR (size_t i = 0; i < N; i++) {
       // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
       double dotsum = 0;
       const T start_col = M.col_starts[i];

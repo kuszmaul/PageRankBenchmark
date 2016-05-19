@@ -5,7 +5,7 @@ DIALECT = -std=c++11
 CXXFLAGS = $(DIALECT) $(OPTFLAGS) -W -Wall -Werror -g
 LDFLAGS  = $(DIALECT) $(OPTFLAGS)
 
-default: testkernel3 runpagerankpipeline runpagerankpipeline_omp
+default: testkernel3 runpagerankpipeline runpagerankpipeline_omp runpagerankpipeline_cilk
 
 runpagerankpipeline: runpagerankpipeline.o krongraph500.o pagerankpipeline.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
@@ -19,6 +19,12 @@ pagerankpipeline_omp.o: pagerankpipeline.cc krongraph500.hh fasttime.h pagerankp
 runpagerankpipeline_omp: runpagerankpipeline.o krongraph500.o pagerankpipeline_omp.o
 	$(CXX) $(CXXFLAGS) -fopenmp $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+runpagerankpipeline_cilk: runpagerankpipeline.o krongraph500.o pagerankpipeline_cilk.o
+	$(CXX) $(CXXFLAGS) -fopenmp -fcilkplus $(LDFLAGS) $^ $(LDLIBS) -o $@
+pagerankpipeline_cilk.o: pagerankpipeline.cc krongraph500.hh fasttime.h pagerankpipeline.hh csc.hh
+	$(CXX) $(CXXFLAGS) -DUSE_OMP -fopenmp -fcilkplus $(LDFLAGS) -c -o $@ $<
+
+
 
 
 testkernel3: testkernel3.cc pagerankpipeline.o krongraph500.o fasttime.h krongraph500.hh csc.hh pagerankpipeline.hh
@@ -28,4 +34,4 @@ check: testkernel3
 	./testkernel3
 
 clean:
-	rm -rf runpagerankpipeline *.o
+	rm -rf runpagerankpipeline runpagerankpipeline_omp runpagerankpipeline_cilk *.o
