@@ -265,7 +265,7 @@ csc_matrix<T> kernel2(const int SCALE, const int edges_per_vertex, const int n_f
   return result;
 }
 
-const int page_rank_iteration_count = 1;
+const int page_rank_iteration_count = 200;
 
 // Fast random number generator.  Don't need high-quality.
 // A hard-coded pseudorandom number generator
@@ -277,6 +277,64 @@ inline uint64_t
 prandnum() {
   X = a*X + b;
   return X;
+}
+
+// Here we use non-const reference variables in contravention to the
+// Google style guide for C++.
+template <class T>
+void k3_once(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
+             std::vector<double> &r, std::vector<double> &r2) {
+#if 0
+  T diff = M.col_starts[Nend] - M.col_starts[Nbegin];
+  if (diff < 2048) {
+    for (size_t i = Nbegin; i < Nend; i++) {
+      // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
+      double dotsum = 0;
+      const T start_col = M.col_starts[i];
+      const T end_col   = M.col_starts[i+1];
+      for (T vi = start_col; vi < end_col; vi++) {
+        dotsum += r[M.rows[vi]] * M.vals[vi];
+      }
+      r2[i] = c * dotsum  + a * fsum;
+    }
+  } else {
+    size_t Nmid = Nbegin + (Nend - Nbegin)/2;
+    k3_once(Nbegin, Nmid, c, fsum, a, M, r, r2);
+    k3_once(Nmid,   Nend, c, fsum, a, M, r, r2);
+  }
+      
+#else
+ #ifdef USE_OMP
+  #pragma omp parallel for
+ #endif
+ #ifdef USE_CILK
+  #pragma cilk grainsize = 1
+ #endif
+  CILK_FOR (size_t i = Nbegin; i < Nend; i++) {
+    // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
+    double dotsum = 0;
+    const T start_col = M.col_starts[i];
+    const T end_col   = M.col_starts[i+1];
+    for (T vi = start_col; vi < end_col; vi++) {
+      dotsum += r[M.rows[vi]] * M.vals[vi];
+    }
+    r2[i] = c * dotsum  + a * fsum;
+
+#if 0
+    // In matlab, this is:   r =  M * (R .* c) + a;
+    double sum = 0;
+    //printf("Row %ld\n", i);
+    const T start_row = M.row_starts[i];
+    const T end_row   = M.row_starts[i+1];
+    for (T vi = start_row; vi < end_row; vi++) {
+      //printf("sum += %f * %f\n", M.vals[vi], r[M.cols[vi]]);
+      sum += M.vals[vi] * r[M.cols[vi]];
+    }
+    r2[i] = sum * c + a;
+#endif
+  }
+#endif
+
 }
 
 template <class T>
@@ -329,46 +387,19 @@ std::vector<double> kernel3_compute(const int SCALE,
   }
 
   // Now do the page rank.
-  double c = 0.85;
+  const double c = 0.85;
 
   // In matlab, a is a vector of these values, but we need represent
   //   the value of a only once.
-  double a = (1-c)/(double)N;
+  const double a = (1-c)/(double)N;
 
   // In matlab we write r = ((c .* r) * M) + (a .* sum(r,2))
   // In C++, we create a second vector r2, and std::swap r2 with r at
   //  the end.
   std::vector<double> r2(N, 0);
+  fasttime_t start = gettime();
   for (int pr_count = 0; pr_count < page_rank_iteration_count; pr_count++) {
-#ifdef USE_OMP
-    #pragma omp parallel for
-#endif
-#ifdef USE_CILK
-    #pragma cilk grainsize = 1
-#endif
-    CILK_FOR (size_t i = 0; i < N; i++) {
-      // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
-      double dotsum = 0;
-      const T start_col = M.col_starts[i];
-      const T end_col   = M.col_starts[i+1];
-      for (T vi = start_col; vi < end_col; vi++) {
-        dotsum += r[M.rows[vi]] * M.vals[vi];
-      }
-      r2[i] = c * dotsum  + a * fsum;
-
-#if 0
-      // In matlab, this is:   r =  M * (R .* c) + a;
-      double sum = 0;
-      //printf("Row %ld\n", i);
-      const T start_row = M.row_starts[i];
-      const T end_row   = M.row_starts[i+1];
-      for (T vi = start_row; vi < end_row; vi++) {
-        //printf("sum += %f * %f\n", M.vals[vi], r[M.cols[vi]]);
-        sum += M.vals[vi] * r[M.cols[vi]];
-      }
-      r2[i] = sum * c + a;
-#endif
-    }
+    k3_once<T>(0, N, c, fsum, a, M, r, r2);
     std::swap(r, r2);
     if (0) {
       printf("after iteration %d r=", pr_count);
@@ -378,6 +409,8 @@ std::vector<double> kernel3_compute(const int SCALE,
       printf("\n");
     }
   }
+  fasttime_t end = gettime();
+  printf("inner loop time = %7.2fs\n", end-start);
   return r;
 }
 
@@ -386,8 +419,9 @@ void kernel3(const int SCALE, const int edges_per_vertex, const csc_matrix<T> &M
   fasttime_t start = gettime();
   std::vector<double> r = kernel3_compute<T>(SCALE, M);
   fasttime_t end   = gettime();
-  printf("scale=%2d Edgefactor=%2d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
+  printf("scale=%2d Edgefactor=%2d iter=%3d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
          SCALE, edges_per_vertex, 
+         page_rank_iteration_count,         
          end-start,
          1e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start),
          2e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
