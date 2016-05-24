@@ -17,6 +17,7 @@ extern FILE *data_file; // set to non-NULL if you want a data file suitable for 
 template <class T>
 std::vector<double> kernel3_compute(const int SCALE, 
                                     const csc_matrix<T> &M,
+                                    const int n_iterations,
                                     // for testing we use a known r.
                                     std::vector<double> *initial_r = nullptr);
 

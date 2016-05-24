@@ -265,8 +265,6 @@ csc_matrix<T> kernel2(const int SCALE, const int edges_per_vertex, const int n_f
   return result;
 }
 
-const int page_rank_iteration_count = 200;
-
 // Fast random number generator.  Don't need high-quality.
 // A hard-coded pseudorandom number generator
 static uint64_t X = 0xce3f12500545b241ul;
@@ -284,9 +282,9 @@ prandnum() {
 template <class T>
 void k3_once(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
              std::vector<double> &r, std::vector<double> &r2) {
-#if 0
+#ifdef USE_CILK
   T diff = M.col_starts[Nend] - M.col_starts[Nbegin];
-  if (diff < 2048) {
+  if (diff <= 2048 || Nend-Nbegin<=1) {
     for (size_t i = Nbegin; i < Nend; i++) {
       // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
       double dotsum = 0;
@@ -299,7 +297,7 @@ void k3_once(const size_t Nbegin, const size_t Nend, const double c, const doubl
     }
   } else {
     size_t Nmid = Nbegin + (Nend - Nbegin)/2;
-    k3_once(Nbegin, Nmid, c, fsum, a, M, r, r2);
+    _Cilk_spawn k3_once(Nbegin, Nmid, c, fsum, a, M, r, r2);
     k3_once(Nmid,   Nend, c, fsum, a, M, r, r2);
   }
       
@@ -340,6 +338,7 @@ void k3_once(const size_t Nbegin, const size_t Nend, const double c, const doubl
 template <class T>
 std::vector<double> kernel3_compute(const int SCALE, 
                                     const csc_matrix<T> &M,
+                                    const int n_iterations,
                                     // for testing we use a known r.
                                     std::vector<double> *initial_r) {
 
@@ -398,7 +397,7 @@ std::vector<double> kernel3_compute(const int SCALE,
   //  the end.
   std::vector<double> r2(N, 0);
   fasttime_t start = gettime();
-  for (int pr_count = 0; pr_count < page_rank_iteration_count; pr_count++) {
+  for (int pr_count = 0; pr_count < n_iterations; pr_count++) {
     k3_once<T>(0, N, c, fsum, a, M, r, r2);
     std::swap(r, r2);
     if (0) {
@@ -416,8 +415,9 @@ std::vector<double> kernel3_compute(const int SCALE,
 
 template <class T>
 void kernel3(const int SCALE, const int edges_per_vertex, const csc_matrix<T> &M) {
+  const int page_rank_iteration_count = 20;
   fasttime_t start = gettime();
-  std::vector<double> r = kernel3_compute<T>(SCALE, M);
+  std::vector<double> r = kernel3_compute<T>(SCALE, M, page_rank_iteration_count);
   fasttime_t end   = gettime();
   printf("scale=%2d Edgefactor=%2d iter=%3d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
          SCALE, edges_per_vertex, 
@@ -439,7 +439,7 @@ void pagerankpipeline(int SCALE, int edges_per_vertex, int n_files) {
 }
 
 template void pagerankpipeline<uint32_t>(int SCALE, int edges_per_vertex, int n_files);
-template std::vector<double> kernel3_compute<uint32_t>(int, csc_matrix<uint32_t> const&, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
 
 // Local Variables:
 // mode: C++

@@ -41,7 +41,7 @@ int main () {
   };
   csc_matrix<uint32_t> nonzeros(8, tuples);
   std::vector<double> initial_r = {0.076423, 0.485566, 0.454543,  0.794698,  0.047933, 0.653576, 0.681263, 0.934423};
-  std::vector<double> r = kernel3_compute<uint32_t>(3, nonzeros, &initial_r);
+  std::vector<double> r = kernel3_compute<uint32_t>(3, nonzeros, 1, &initial_r);
   std::vector<double> expected_r = {0.018750, 0.334375, 0.191262, 0.089931, 0.152989, 0.042293, 0.053178, 0.117222};
   if (0) {
     printf("r = {");
