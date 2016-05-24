@@ -280,35 +280,9 @@ prandnum() {
 // Here we use non-const reference variables in contravention to the
 // Google style guide for C++.
 template <class T>
-void k3_once(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
-             std::vector<double> &r, std::vector<double> &r2) {
-#ifdef USE_CILK
-  T diff = M.col_starts[Nend] - M.col_starts[Nbegin];
-  if (diff <= 2048 || Nend-Nbegin<=1) {
-    for (size_t i = Nbegin; i < Nend; i++) {
-      // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
-      double dotsum = 0;
-      const T start_col = M.col_starts[i];
-      const T end_col   = M.col_starts[i+1];
-      for (T vi = start_col; vi < end_col; vi++) {
-        dotsum += r[M.rows[vi]] * M.vals[vi];
-      }
-      r2[i] = c * dotsum  + a * fsum;
-    }
-  } else {
-    size_t Nmid = Nbegin + (Nend - Nbegin)/2;
-    _Cilk_spawn k3_once(Nbegin, Nmid, c, fsum, a, M, r, r2);
-    k3_once(Nmid,   Nend, c, fsum, a, M, r, r2);
-  }
-      
-#else
- #ifdef USE_OMP
-  #pragma omp parallel for
- #endif
- #ifdef USE_CILK
-  #pragma cilk grainsize = 1
- #endif
-  CILK_FOR (size_t i = Nbegin; i < Nend; i++) {
+void k3_once_base(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
+                  std::vector<double> &r, std::vector<double> &r2) {
+  for (size_t i = Nbegin; i < Nend; i++) {
     // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
     double dotsum = 0;
     const T start_col = M.col_starts[i];
@@ -317,25 +291,54 @@ void k3_once(const size_t Nbegin, const size_t Nend, const double c, const doubl
       dotsum += r[M.rows[vi]] * M.vals[vi];
     }
     r2[i] = c * dotsum  + a * fsum;
-
-#if 0
-    // In matlab, this is:   r =  M * (R .* c) + a;
-    double sum = 0;
-    //printf("Row %ld\n", i);
-    const T start_row = M.row_starts[i];
-    const T end_row   = M.row_starts[i+1];
-    for (T vi = start_row; vi < end_row; vi++) {
-      //printf("sum += %f * %f\n", M.vals[vi], r[M.cols[vi]]);
-      sum += M.vals[vi] * r[M.cols[vi]];
-    }
-    r2[i] = sum * c + a;
-#endif
   }
-#endif
+}
 
+template <class T, int base>
+void k3_once_cilk(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
+             std::vector<double> &r, std::vector<double> &r2) {
+  T diff = M.col_starts[Nend] - M.col_starts[Nbegin];
+  if (diff <= base || Nend-Nbegin<=1) {
+    k3_once_base<T>(Nbegin, Nend, c, fsum, a, M, r, r2);
+  } else {
+    size_t Nmid = Nbegin + (Nend - Nbegin)/2;
+    _Cilk_spawn k3_once_cilk<T, base>(Nbegin, Nmid, c, fsum, a, M, r, r2);
+    k3_once_cilk<T, base>(Nmid,   Nend, c, fsum, a, M, r, r2);
+  }
 }
 
 template <class T>
+void k3_once_cilkfor(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
+                     std::vector<double> &r, std::vector<double> &r2) {
+  _Cilk_for (size_t i = Nbegin; i < Nend; i++) {
+    // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
+    double dotsum = 0;
+    const T start_col = M.col_starts[i];
+    const T end_col   = M.col_starts[i+1];
+    for (T vi = start_col; vi < end_col; vi++) {
+      dotsum += r[M.rows[vi]] * M.vals[vi];
+    }
+    r2[i] = c * dotsum  + a * fsum;
+  }
+}
+
+template <class T>
+void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
+                 std::vector<double> &r, std::vector<double> &r2) {
+#pragma omp parallel for
+  for (size_t i = Nbegin; i < Nend; i++) {
+    // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
+    double dotsum = 0;
+    const T start_col = M.col_starts[i];
+    const T end_col   = M.col_starts[i+1];
+    for (T vi = start_col; vi < end_col; vi++) {
+      dotsum += r[M.rows[vi]] * M.vals[vi];
+    }
+    r2[i] = c * dotsum  + a * fsum;
+  }
+}
+
+template <class T, k3_once_t<T> k3_once>
 std::vector<double> kernel3_compute(const int SCALE, 
                                     const csc_matrix<T> &M,
                                     const int n_iterations,
@@ -396,9 +399,9 @@ std::vector<double> kernel3_compute(const int SCALE,
   // In C++, we create a second vector r2, and std::swap r2 with r at
   //  the end.
   std::vector<double> r2(N, 0);
-  fasttime_t start = gettime();
+  //fasttime_t start = gettime();
   for (int pr_count = 0; pr_count < n_iterations; pr_count++) {
-    k3_once<T>(0, N, c, fsum, a, M, r, r2);
+    k3_once(0, N, c, fsum, a, M, r, r2);
     std::swap(r, r2);
     if (0) {
       printf("after iteration %d r=", pr_count);
@@ -408,38 +411,45 @@ std::vector<double> kernel3_compute(const int SCALE,
       printf("\n");
     }
   }
-  fasttime_t end = gettime();
-  printf("inner loop time = %7.2fs\n", end-start);
+  //fasttime_t end = gettime();
+  //printf("inner loop time = %7.2fs\n", end-start);
   return r;
 }
 
-template <class T>
-void kernel3(const int SCALE, const int edges_per_vertex, const csc_matrix<T> &M) {
-  const int page_rank_iteration_count = 20;
+template <class T, k3_once_t<T> k3_once>
+void kernel3(const std::string &name, const int SCALE, const int edges_per_vertex, const csc_matrix<T> &M, int n_iterations) {
   fasttime_t start = gettime();
-  std::vector<double> r = kernel3_compute<T>(SCALE, M, page_rank_iteration_count);
+  std::vector<double> r = kernel3_compute<T, k3_once>(SCALE, M, n_iterations, nullptr);
   fasttime_t end   = gettime();
-  printf("scale=%2d Edgefactor=%2d iter=%3d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
+  printf("%-9s scale=%2d Edgefactor=%2d iter=%3d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
+         name.c_str(),
          SCALE, edges_per_vertex, 
-         page_rank_iteration_count,         
+         n_iterations,
          end-start,
-         1e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start),
-         2e-6 * (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
+         1e-6 * (1ul<<SCALE)*edges_per_vertex*n_iterations / (end-start),
+         2e-6 * (1ul<<SCALE)*edges_per_vertex*n_iterations / (end-start));
   if (data_file) {
-    fprintf(data_file, " %g\n", (1ul<<SCALE)*edges_per_vertex*page_rank_iteration_count / (end-start));
+    fprintf(data_file, " %g\n", (1ul<<SCALE)*edges_per_vertex*n_iterations / (end-start));
   }
 }
 
 template <class T>
-void pagerankpipeline(int SCALE, int edges_per_vertex, int n_files) {
+void pagerankpipeline(int SCALE, int edges_per_vertex, int n_files, int n_iterations) {
   kernel0<T>(SCALE, edges_per_vertex, n_files);
   kernel1<T>(SCALE, edges_per_vertex, n_files);
   csc_matrix<T> M = kernel2<T>(SCALE, edges_per_vertex, n_files);
-  kernel3<T>(SCALE, edges_per_vertex,           M);
+  kernel3<T, k3_once_base<T>>      ("base",    SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, k3_once_cilk<T, 2048>>("cilk",    SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, k3_once_cilkfor<T>>   ("cilkfor", SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, k3_once_omp<T>>       ("omp",     SCALE, edges_per_vertex, M, n_iterations);  
+  
 }
 
-template void pagerankpipeline<uint32_t>(int SCALE, int edges_per_vertex, int n_files);
-template std::vector<double> kernel3_compute<uint32_t>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template void pagerankpipeline<uint32_t>(int SCALE, int edges_per_vertex, int n_files, int n_iterations);
+template std::vector<double> kernel3_compute<uint32_t, k3_once_base<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, k3_once_cilk<uint32_t, 1>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, k3_once_cilkfor<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, k3_once_omp<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
 
 // Local Variables:
 // mode: C++

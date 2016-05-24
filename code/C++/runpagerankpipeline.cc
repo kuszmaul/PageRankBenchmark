@@ -13,15 +13,19 @@
 
 static const int min_scale_default = 10;
 static const int max_scale_default = 22;
+static const int n_iterations_default = 20;
 
-static char *progname;
+std::string progname;
+int min_scale = min_scale_default;
+int max_scale = max_scale_default;
+int n_iterations  = n_iterations_default;
 
-static void usage() __attribute__((noreturn));
 static void usage() {
-  printf("Usage: %s [ min_scale [ max_scale ]]\n", progname);
-  printf("  Runs the page rank pipeline on a range of scales\n");
-  printf("  low_scale defaults to %d\n", min_scale_default);
-  printf("  hi_scale defaults to %d\n", max_scale_default);
+  fprintf(stderr, "Usage: %s [--minscale min_scale] [--maxscale max_scale] [--iter n_iterations]\n", progname.c_str());
+  fprintf(stderr, "  Runs the page rank pipeline on a range of scales\n");
+  fprintf(stderr, "  min_scale defaults to %d\n", min_scale_default);
+  fprintf(stderr, "  max_scale defaults to %d\n", max_scale_default);
+  fprintf(stderr, "  --iter specifies how many many iterations (default %d)\n", n_iterations_default);
   exit(1);
 }
 
@@ -38,19 +42,36 @@ static unsigned int parse_uint(const char *str) {
   return v;
 }
 
-int main(int argc, char *argv[]) {
+static void parse_args(int argc, const char **argv) {
   progname = argv[0];
-  const int min_scale = (argc >= 2) ? parse_uint(argv[1]) : min_scale_default;
-  const int max_scale = (argc >= 3) ? parse_uint(argv[2]) : max_scale_default;
-  if (argc >= 4) {
-    printf("Too many arguments\n");
-    usage();
+  argc--; argv++;
+  while (argc > 0) {
+    std::string arg(*argv);
+    argc--; argv++;
+    if (arg == "--minscale") {
+      min_scale = parse_uint(*argv);
+      argc--; argv++;
+    } else if (arg == "--maxscale") {
+      max_scale = parse_uint(*argv);
+      argc--; argv++;
+    } else if (arg == "--iter") {
+      n_iterations = parse_uint(*argv);
+      argc--; argv++;
+    } else {
+      fprintf(stderr, "Don't understand this argument: %s\n", arg.c_str());
+      usage();
+    }
   }
+}
+
+
+int main(int argc, const char *argv[]) {
+  parse_args(argc, argv);
   data_file = fopen("pagerank.data", "w");
   const int edges_per_vertex = 2;
   const int nfile = 1;
   for (int scale = min_scale; scale <= max_scale; scale++) {
-    pagerankpipeline<uint32_t>(scale, edges_per_vertex, nfile);
+    pagerankpipeline<uint32_t>(scale, edges_per_vertex, nfile, n_iterations);
   }
   fclose(data_file);
   data_file = NULL;

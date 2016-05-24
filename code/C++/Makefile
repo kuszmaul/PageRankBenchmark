@@ -1,11 +1,11 @@
 # Pagerank Pipeline Benchmark in C++
 # Copyright 2015 Bradley C. Kuszmaul, bradley@mit.edu
 OPTFLAGS = -O2
-DIALECT = -std=c++11 
+DIALECT = -std=c++11 -fcilkplus -fopenmp
 CXXFLAGS = $(DIALECT) $(OPTFLAGS) -W -Wall -Werror -g
 LDFLAGS  = $(DIALECT) $(OPTFLAGS)
 
-default: testkernel3 runpagerankpipeline runpagerankpipeline_omp runpagerankpipeline_cilk
+default: testkernel3 runpagerankpipeline
 
 runpagerankpipeline: runpagerankpipeline.o krongraph500.o pagerankpipeline.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
@@ -13,25 +13,13 @@ runpagerankpipeline.o: runpagerankpipeline.cc pagerankpipeline.hh
 krongraph500.o: krongraph500.cc krongraph500.hh
 pagerankpipeline.o: pagerankpipeline.cc krongraph500.hh fasttime.h pagerankpipeline.hh csc.hh
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c -o $@ $<
-pagerankpipeline_omp.o: pagerankpipeline.cc krongraph500.hh fasttime.h pagerankpipeline.hh csc.hh
-	$(CXX) $(CXXFLAGS) -DUSE_OMP -fopenmp $(LDFLAGS) -c -o $@ $<
-
-runpagerankpipeline_omp: runpagerankpipeline.o krongraph500.o pagerankpipeline_omp.o
-	$(CXX) $(CXXFLAGS) -fopenmp $(LDFLAGS) $^ $(LDLIBS) -o $@
-
-runpagerankpipeline_cilk: runpagerankpipeline.o krongraph500.o pagerankpipeline_cilk.o
-	$(CXX) $(CXXFLAGS) -fopenmp -fcilkplus $(LDFLAGS) $^ $(LDLIBS) -o $@
-pagerankpipeline_cilk.o: pagerankpipeline.cc krongraph500.hh fasttime.h pagerankpipeline.hh csc.hh
-	$(CXX) $(CXXFLAGS) -DUSE_OMP -fopenmp -fcilkplus $(LDFLAGS) -c -o $@ $<
-
-
-
 
 testkernel3: testkernel3.cc pagerankpipeline.o krongraph500.o fasttime.h krongraph500.hh csc.hh pagerankpipeline.hh
 	$(CXX) $(CXXFLAGS) testkernel3.cc pagerankpipeline.o krongraph500.o -o $@
 
-check: testkernel3
+check: testkernel3 runpagerankpipeline
 	./testkernel3
+	./runpagerankpipeline --minscale 10 --maxscale 10
 
 clean:
 	rm -rf runpagerankpipeline runpagerankpipeline_omp runpagerankpipeline_cilk *.o
