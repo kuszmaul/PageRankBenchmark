@@ -13,9 +13,9 @@ void pagerankpipeline(int SCALE, int edges_per_vertex, int n_files, int n_iterat
 
 extern FILE *data_file; // set to non-NULL if you want a data file suitable for gnuplot.
 
-template <class T>
-using k3_once_t = void (*)(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
-                           std::vector<double> &r, std::vector<double> &r2);
+template <class T, class Matrix>
+using k3_once_t = void (*)(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a,
+                           const Matrix &M, std::vector<double> &r, std::vector<double> &r2);
 
 template <class T>
 void k3_once_base(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
@@ -36,9 +36,9 @@ void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const d
 
 
 // Internal functions exported for testing:
-template <class T, k3_once_t<T> k3_once>
+template <class T, class Matrix, k3_once_t<T, Matrix> k3_once>
 std::vector<double> kernel3_compute(const int SCALE, 
-                                    const csc_matrix<T> &M,
+                                    const Matrix &M,
                                     const int n_iterations,
                                     // for testing we use a known r.  In production pass nullptr.
                                     std::vector<double> *initial_r);

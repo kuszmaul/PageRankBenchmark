@@ -14,16 +14,7 @@
 
 #include <sys/stat.h>
 
-#if defined(USE_OMP) || defined(USE_CILK)
 #include <parallel/algorithm>
-#endif
-
-#ifdef USE_CILK
-#define CILK_FOR _Cilk_for
-#else
-#define CILK_FOR for
-#endif
-
 
 FILE *data_file = NULL; // set to non-null to produce a data file suitable for gnuplot.
 
@@ -59,13 +50,16 @@ void read_files(int kernel, int SCALE, int edges_per_vertex, int n_files,
   const uint64_t M_per_file = (1ul<<SCALE) * edges_per_vertex;
   const uint64_t M = M_per_file * n_files;
   edges->resize(M);
+#if 0
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
 #ifdef USE_CILK
     #pragma cilk grainsize = 1
+    CILK_FOR
 #endif
-  CILK_FOR (int i = 0; i < n_files; i++) {
+#endif
+  for (int i = 0; i < n_files; i++) {
     FILE *f = fopen(file_named(kernel, SCALE, i).c_str(), "r");
     assert(f);
     char *line = NULL;
@@ -96,13 +90,16 @@ void write_files(const int kernel, const int SCALE, const int edges_per_vertex, 
   const uint64_t M_per_file = (1ul<<SCALE) * edges_per_vertex;
   auto it = edges.begin();
   mkdir(dir_named(1, SCALE).c_str(), 0777);
+#if 0
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
 #ifdef USE_CILK
     #pragma cilk grainsize = 1
 #endif
-  CILK_FOR (int i = 0; i < n_files; i++) {
+  CILK_FOR
+#endif
+  for (int i = 0; i < n_files; i++) {
     std::ofstream f(file_named(kernel, SCALE, i), std::ios::out);
     for (T j = 0; j < M_per_file; j++) {
       f << std::get<0>(*it) << '\t' << std::get<1>(*it) << '\n';
@@ -117,13 +114,16 @@ template <class T>
 void kernel0(const int SCALE, const int edges_per_vertex, const int n_files) {
   fasttime_t start = gettime();
   mkdir("data", 0777);
+#if 0
 #ifdef USE_OMP
     #pragma omp parallel for
 #endif
 #ifdef USE_CILK
     #pragma cilk grainsize = 1
+CILK_FOR
 #endif
-  CILK_FOR (int i = 0; i < n_files; i++) {
+#endif
+    for (int i = 0; i < n_files; i++) {
     mkdir(dir_named(0, SCALE).c_str(), 0777);
     if (0) {
       std::ofstream f(file_named(0, SCALE, i), std::ios::out);
@@ -325,22 +325,39 @@ void k3_once_cilkfor(const size_t Nbegin, const size_t Nend, const double c, con
 template <class T>
 void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
                  std::vector<double> &r, std::vector<double> &r2) {
+  static int count = 0;
+  static size_t prev_Nend = 0;
+  if (prev_Nend != Nend) count = 0;
+  prev_Nend = Nend;
+  int tc = omp_get_max_threads();
+  //std::vector<T> how_many_columns(tc, 0);
+  std::vector<T> nnz_distribution(tc, 0);
 #pragma omp parallel for
   for (size_t i = Nbegin; i < Nend; i++) {
     // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
+    int tn = omp_get_thread_num();
+    //how_many_columns[tn]++;
     double dotsum = 0;
     const T start_col = M.col_starts[i];
     const T end_col   = M.col_starts[i+1];
+    nnz_distribution[tn] += end_col - start_col;
     for (T vi = start_col; vi < end_col; vi++) {
       dotsum += r[M.rows[vi]] * M.vals[vi];
     }
     r2[i] = c * dotsum  + a * fsum;
   }
+  if (count++ < 2) {
+    //printf("column distribution:");
+    //for (auto n : how_many_columns) { printf(" %d", n); }
+    //printf("\n");
+    T max = *std::max_element(nnz_distribution.begin(), nnz_distribution.end());
+    printf("maxnnz = %d   nnz/proc = %f, imbalance = %f\n", max, (double)M.nnz()/tc, (double)max/((double)M.nnz()/tc));
+  }
 }
 
-template <class T, k3_once_t<T> k3_once>
+template <class T, class Matrix, k3_once_t<T, Matrix> k3_once>
 std::vector<double> kernel3_compute(const int SCALE, 
-                                    const csc_matrix<T> &M,
+                                    const Matrix &M,
                                     const int n_iterations,
                                     // for testing we use a known r.
                                     std::vector<double> *initial_r) {
@@ -416,10 +433,10 @@ std::vector<double> kernel3_compute(const int SCALE,
   return r;
 }
 
-template <class T, k3_once_t<T> k3_once>
-void kernel3(const std::string &name, const int SCALE, const int edges_per_vertex, const csc_matrix<T> &M, int n_iterations) {
+template <class T, class Matrix, k3_once_t<T, Matrix> k3_once>
+void kernel3(const std::string &name, const int SCALE, const int edges_per_vertex, const Matrix &M, int n_iterations) {
   fasttime_t start = gettime();
-  std::vector<double> r = kernel3_compute<T, k3_once>(SCALE, M, n_iterations, nullptr);
+  std::vector<double> r = kernel3_compute<T, Matrix,k3_once>(SCALE, M, n_iterations, nullptr);
   fasttime_t end   = gettime();
   printf("%-9s scale=%2d Edgefactor=%2d iter=%3d K3time: %9.3fs Medges/sec: %7.2f  MFLOPS: %7.2f\n", 
          name.c_str(),
@@ -438,18 +455,54 @@ void pagerankpipeline(int SCALE, int edges_per_vertex, int n_files, int n_iterat
   kernel0<T>(SCALE, edges_per_vertex, n_files);
   kernel1<T>(SCALE, edges_per_vertex, n_files);
   csc_matrix<T> M = kernel2<T>(SCALE, edges_per_vertex, n_files);
-  kernel3<T, k3_once_base<T>>      ("base",    SCALE, edges_per_vertex, M, n_iterations);
-  kernel3<T, k3_once_cilk<T, 2048>>("cilk",    SCALE, edges_per_vertex, M, n_iterations);
-  kernel3<T, k3_once_cilkfor<T>>   ("cilkfor", SCALE, edges_per_vertex, M, n_iterations);
-  kernel3<T, k3_once_omp<T>>       ("omp",     SCALE, edges_per_vertex, M, n_iterations);  
-  
+  kernel3<T, csc_matrix<T>, k3_once_base<T>>      ("base",    SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, csc_matrix<T>, k3_once_cilk<T, 2048>>("cilk",    SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, csc_matrix<T>, k3_once_cilkfor<T>>   ("cilkfor", SCALE, edges_per_vertex, M, n_iterations);
+  kernel3<T, csc_matrix<T>, k3_once_omp<T>>       ("omp",     SCALE, edges_per_vertex, M, n_iterations);  
+  {
+    int tc = omp_get_max_threads();
+    fprintf(stderr, "omp_max_threads=%d\n", tc);
+    T max_col_size = 0;
+    T n_cols = M.n_cols();
+    std::vector<int> rows_per_thread(tc, 0);
+    for (int i = 0 ; i < tc; i++) {
+      rows_per_thread[i] = n_cols/tc;
+    }
+    for (T i = 0 ; i < n_cols%tc; i++) {
+      rows_per_thread[i]++;
+    }
+    std::vector<int> prefix_rows_per_thread(tc+1, 0);
+    for (int i = 0; i < tc; i++) {
+      prefix_rows_per_thread[i+1] = prefix_rows_per_thread[i] + rows_per_thread[i];
+    }
+    for (size_t i = 0; i < M.col_starts.size()-1; i++) {
+      T n_in_col = M.col_starts[i+1]-M.col_starts[i];
+      max_col_size = std::max(max_col_size, n_in_col);
+    }
+    T max_nnz_per_thread = 0;
+    //fprintf(stderr, " static thread nnz distribution: ");
+    for (int p = 0; p < tc; p++) {
+      T nnz_in_this_thread = 0;
+      for (int i = prefix_rows_per_thread[p]; i < prefix_rows_per_thread[p+1]; i++) {
+        T n_in_col = M.col_starts[i+1]-M.col_starts[i];
+        nnz_in_this_thread += n_in_col;
+      }
+      max_nnz_per_thread = std::max(max_nnz_per_thread, nnz_in_this_thread);
+      //fprintf(stderr, " %d", nnz_in_this_thread);
+    }
+    //fprintf(stderr, "\n");
+    fprintf(stderr, "max col_size     = %-9d nnz/col    = %9.1f  parallelism     =%f\n", 
+            max_col_size, (double)M.nnz()/(double)n_cols, (double)M.nnz()/(double)max_col_size);
+    fprintf(stderr, "max static count = %-9d nnz/thread = %9.1f  static imbalance=%f\n",
+            max_nnz_per_thread, (double)M.nnz()/(double)tc, max_nnz_per_thread/((double)M.nnz()/(double)tc));
+  }
 }
 
 template void pagerankpipeline<uint32_t>(int SCALE, int edges_per_vertex, int n_files, int n_iterations);
-template std::vector<double> kernel3_compute<uint32_t, k3_once_base<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
-template std::vector<double> kernel3_compute<uint32_t, k3_once_cilk<uint32_t, 1>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
-template std::vector<double> kernel3_compute<uint32_t, k3_once_cilkfor<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
-template std::vector<double> kernel3_compute<uint32_t, k3_once_omp<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, csc_matrix<uint32_t>, k3_once_base<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, csc_matrix<uint32_t>, k3_once_cilk<uint32_t, 1>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, csc_matrix<uint32_t>, k3_once_cilkfor<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
+template std::vector<double> kernel3_compute<uint32_t, csc_matrix<uint32_t>, k3_once_omp<uint32_t>>(int, csc_matrix<uint32_t> const&, int, std::vector<double> *);
 
 // Local Variables:
 // mode: C++

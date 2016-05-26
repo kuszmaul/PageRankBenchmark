@@ -52,6 +52,8 @@ struct csc_matrix {
       printf("\n");
     }
   }
+  T nnz() const { return vals.size(); }
+  T n_cols() const { return col_starts.size()-1; }
 };
 
 // Local Variables:
