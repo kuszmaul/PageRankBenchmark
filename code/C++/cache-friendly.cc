@@ -9,7 +9,8 @@ cache_aware_sparse_matrix<T>::cache_aware_sparse_matrix(
     size_t N, std::vector<RCV<T>> nonzeros, size_t log_rows_per_batch)
         : N(N)
         , log_rows_per_batch(log_rows_per_batch)
-        , col_starts(std::vector<std::vector<std::tuple<T,T>>>((N+log_rows_per_batch-1)>>log_rows_per_batch, std::vector<std::tuple<T,T>>(0)))
+        , n_batches((N+(1ul<<log_rows_per_batch)-1) >> log_rows_per_batch)
+        , col_starts(std::vector<std::vector<std::tuple<T,T>>>((n_batches)))
         , rows(std::vector<T>(nonzeros.size()))
         , vals(std::vector<double>(nonzeros.size()))
 {

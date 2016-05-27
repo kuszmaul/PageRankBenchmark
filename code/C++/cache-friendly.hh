@@ -22,6 +22,7 @@ class cache_aware_sparse_matrix {
     // Each batch is several rows stored in column-major order.
     const size_t N;
     const int    log_rows_per_batch;
+    const size_t n_batches;
     std::vector<std::vector<std::tuple<T, T>>> col_starts; // for each batch of rows, where does each column start (index into rows and vals)  
 
     // The rows and vals are just the batches concatenated.
