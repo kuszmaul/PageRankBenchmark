@@ -20,8 +20,6 @@ struct csc_matrix {
   std::vector<T> col_starts;
   std::vector<T> rows;
   std::vector<double> vals;
-  csc_matrix(T NNZ, T N /* matrix side length*/ ) {
-  }
   csc_matrix(T N, const std::vector<std::tuple<T, T, double>> &nonzeros) {
     // nonzeros must be already sorted into column-major order.
     col_starts.reserve(N + 1);

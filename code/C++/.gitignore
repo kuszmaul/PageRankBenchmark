@@ -3,4 +3,6 @@
 runpagerankpipeline
 data
 testkernel3
-runpagerankpipeline_omp
+test-cache-friendly
+cachegrind.out.*
+
