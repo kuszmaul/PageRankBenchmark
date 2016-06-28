@@ -322,9 +322,12 @@ void k3_once_cilkfor(const size_t Nbegin, const size_t Nend, const double c, con
   }
 }
 
+//#define COMPUTE_IMBALANCE
+
 template <class T>
 void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const double fsum, const double a, const csc_matrix<T> &M,
                  std::vector<double> &r, std::vector<double> &r2) {
+#ifdef COMPUTE_IMBALANCE
   static int count = 0;
   static size_t prev_Nend = 0;
   if (prev_Nend != Nend) count = 0;
@@ -332,20 +335,24 @@ void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const d
   int tc = omp_get_max_threads();
   //std::vector<T> how_many_columns(tc, 0);
   std::vector<T> nnz_distribution(tc, 0);
+#endif
 #pragma omp parallel for
   for (size_t i = Nbegin; i < Nend; i++) {
     // In matlab, this is    r = ((c .* r) * M) + (a .* sum(r,2))
-    int tn = omp_get_thread_num();
     //how_many_columns[tn]++;
     double dotsum = 0;
     const T start_col = M.col_starts[i];
     const T end_col   = M.col_starts[i+1];
+#ifdef COMPUTE_IMBALANCE
+    int tn = omp_get_thread_num();
     nnz_distribution[tn] += end_col - start_col;
+#endif
     for (T vi = start_col; vi < end_col; vi++) {
       dotsum += r[M.rows[vi]] * M.vals[vi];
     }
     r2[i] = c * dotsum  + a * fsum;
   }
+#ifdef COMPUTE_IMBALANCE
   if (count++ < 2) {
     //printf("column distribution:");
     //for (auto n : how_many_columns) { printf(" %d", n); }
@@ -353,6 +360,7 @@ void k3_once_omp(const size_t Nbegin, const size_t Nend, const double c, const d
     T max = *std::max_element(nnz_distribution.begin(), nnz_distribution.end());
     printf("maxnnz = %d   nnz/proc = %f, imbalance = %f\n", max, (double)M.nnz()/tc, (double)max/((double)M.nnz()/tc));
   }
+#endif
 }
 
 template <class T, class Matrix, k3_once_t<T, Matrix> k3_once>
