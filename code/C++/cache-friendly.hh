@@ -20,17 +20,19 @@ template <class T>
 class cache_aware_sparse_matrix {
     // Divide things into batches of rows.
     // Each batch is several rows stored in column-major order.
-    const size_t N;
-    const int    log_rows_per_batch;
-    const size_t n_batches;
-    std::vector<std::vector<std::tuple<T, T>>> col_starts; // for each batch of rows, where does each column start (index into rows and vals)  
+    const T   N;
+    const int log_rows_per_batch;
+    const T   n_batches;
+    std::vector<T> batch_starts;
+    std::vector<std::tuple<T, T>> col_starts; // (Since batch-ends tells us where they end we don't need any extras or sentinals here)
+    // for each batch of rows, where does each column start (index into rows and vals)  
 
     // The rows and vals are just the batches concatenated.
     std::vector<T> rows;
     std::vector<double> vals;
 
   public:
-    cache_aware_sparse_matrix(size_t N, std::vector<RCV<T>> nonzeros, size_t log_rows_per_batch = 10);
+    cache_aware_sparse_matrix(T N, std::vector<RCV<T>> nonzeros, int log_rows_per_batch = 10);
     friend void test_cache_aware_matrix (void);
     static T batch_of_row(T row, int log_rows_per_batch) {
         return row >> log_rows_per_batch;

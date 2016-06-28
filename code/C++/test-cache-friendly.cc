@@ -17,9 +17,10 @@ void test_cache_aware_matrix (void) {
         assert (m.N == 4);
         assert (m.n_batches == 2);
         assert(m.log_rows_per_batch == 1);
-        std::vector<CS> batch0_starts = {CS(0,0), CS(1,2),  CS(2,4),  CS(3,6)};
-        std::vector<CS> batch1_starts = {CS(0,8), CS(1,10), CS(2,12), CS(3,14)};
-        std::vector<std::vector<CS>> col_starts = {batch0_starts, batch1_starts};
+        std::vector<uint32_t> batch_starts = {0, 5, 10};
+        assert(m.batch_starts == batch_starts);
+        std::vector<CS> col_starts = {CS(0,0), CS(1, 2), CS(2, 4), CS(3, 6), CS(4, 8),
+                                      CS(0,8), CS(1,10), CS(2,12), CS(3,14), CS(4,16)};
         assert(m.col_starts == col_starts);
         std::vector<uint32_t> expected_rows = {0,1,0,1,0,1,0,1,2, 3, 2, 3, 2, 3, 2, 3};
         std::vector<double> expected_values = {1,5,2,6,3,7,4,8,9,13,10,14,11,15,12,16};
@@ -32,11 +33,14 @@ void test_cache_aware_matrix (void) {
         assert(m.N == 5);
         assert (m.n_batches == 3);
         assert(m.log_rows_per_batch == 1);
-        std::vector<std::vector<CS>> col_starts(3);
+        std::vector<uint32_t> batch_starts = {0, 1, 2, 3};
+        assert(m.batch_starts == batch_starts);
+        std::vector<CS> col_starts = {CS(5,0), CS(5,0), CS(5,0)}; // these are all sentinals
         assert(m.col_starts == col_starts);
         assert(m.rows.size() == 0);
         assert(m.vals.size() == 0);
     }
+#if 0
     {
         std::vector<RCVu> nz = {RCVu(4,4,1), RCVu(8,4,2)};
         cache_aware_sparse_matrix<uint32_t> m(13, nz, 2);
@@ -62,6 +66,7 @@ void test_cache_aware_matrix (void) {
         assert(m.rows == expected_rows);
         assert(m.vals == expected_vals);
     }
+#endif
 }
 
 int main () {
